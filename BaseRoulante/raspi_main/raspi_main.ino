@@ -22,7 +22,7 @@ int speed = 60;
 int dirL;
 int dirR;
 int target;
-int dsec = 100; // mm
+int dsec ; // mm
 int Lldist;
 int Rldist;
 long cL;
@@ -31,8 +31,13 @@ int stoptype;
 int (*pulse2value)(int);
 float restvalue;
 float actionfaite[] = {0,0,0};
+bool front_col;
+bool coter_col;
 
-float move[] = {90,500}; // roatation en degrée et translation en mm
+char buffer[32];  // tableau pour stocker la réception
+int c;
+float move[5] = {0,0,1,1,200};
+float default_move[5] = {0,0,1,1,200};
 
 
 CytronMD motor_Left( PWM_PWM, inA[0], inB[0]);
@@ -163,6 +168,32 @@ void setup() {
 }
 
 void loop(){  
+  for (int j=0; j<5;++j){
+    move[j]=default_move[j];
+    memset(buffer, 0, sizeof(buffer));
+  }
+  c=0;
+  if (Serial.available() > 0){
+    int n = Serial.readBytesUntil('\"', buffer, sizeof(buffer)-1);
+    buffer[n] = '\0';
+    //Serial.print(buffer);  
+    // Pointeur pour stocker chaque morceau
+    char *token = strtok(buffer, ",");
+
+    while (token != NULL) {
+    // convertir le morceau en entier
+      if ( c<5){
+          //Serial.println(value);
+        move[c]=atof(token);
+      }
+      ++c;
+
+      token = strtok(NULL, ","); // passer au suivant
+    }
+  }
+  dsec = move[4];
+  front_col=move[2];
+  coter_col=move[3];
   // on itere pour la rotation puis la translation
   for (int i=0; i<2; i++){
     int action = move[i];
@@ -210,11 +241,11 @@ void loop(){
           stoptype=0;
           break;  // on sort de la boucle
         }
-        else if (iscollision_front(dsec)){ // distance de securite a l'avant
+        else if (front_col && iscollision_front(dsec)){ // distance de securite a l'avant
           stoptype=1;
           break;
         }
-        else if (iscollision_LR()){ // les sswitch sur les coté du robot
+        else if (coter_col && iscollision_LR()){ // les sswitch sur les coté du robot
           stoptype=2;
           break;
         }

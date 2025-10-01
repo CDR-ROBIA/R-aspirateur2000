@@ -10,40 +10,32 @@ def read_data():
     data = arduino.readline()
     return data
 
-def write_data(x):
+def write_data(angle_rot,translation,front_col,coter_col,dist_secu):
+    x = f"{angle_rot},{translation},{front_col},{coter_col},{dist_secu}\n"
     arduino.write(bytes(x,  'utf-8'))
 
 Ls = []
 Rs = []
 
 while True:
-    value  = read_data()
-    c,x,y= str(value)[2:-3].split(",")
-    print(" \n\n")
-    print(value)
-    print(c)
-    print("L",x)
-    print("R",y)
-    print(" \n\n")
-    Ls.append(x)
-    Rs.append(y)
-    if float(c)>=127.0:
-        break
+    print("send data")
+    write_data("90,180,1,1,50\n")
 
 
-
+"""
 with open("encodeur_value.txt","w+") as file:
     data = str(Ls)+";"+str(Rs)
-    file.write(data)
+    file.write(data)"""
 
 
-with open("encodeur_value.txt", "r") as file:
+with open("encodeur_value_mps.txt", "r") as file:
     data = file.read()
 
 
 L, R = data.split(";")
-L = [np.float64(i.replace("'","")) for i in L[1:-1].split(",")]
-R = [np.float64(i.replace("'","")) for i in R[1:-1].split(",")]
+print(L)
+L = [np.float64(i) for i in L[2:-3].split(",")]#[np.float64(i.replace("'","")) for i in L[1:-1].split(",")]
+R = [np.float64(i) for i in R[2:-3].split(",")]#[np.float64(i.replace("'","")) for i in R[1:-1].split(",")]
 
 
 x=[20+j for j in range(len(R))]
