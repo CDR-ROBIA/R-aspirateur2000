@@ -37,22 +37,4 @@
 #define R_Distance A3
 
 
-// pin robot 
-int speed_left;
-int speed_right;
-
-int dirL;
-int dirR;
-int target;
-int dsec ; // mm
-int Lldist;
-int Rldist;
-long cL;
-long cR;
-int stoptype;
-int (*pulse2value)(int);
-float restvalue;
-
-bool front_col;
-bool coter_col;
 #endif 
