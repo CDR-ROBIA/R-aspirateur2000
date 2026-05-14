@@ -1,7 +1,8 @@
 #include <CytronMotorDriver.h>
 
 #include "raspi_config.h"
-
+#include "raspi_capteur.h"
+#include "raspi_motion.h"
 
 static unsigned long lastMs = 0;
 const unsigned long intervalMs = 20;
@@ -154,6 +155,56 @@ void send_action_done(float action_done[3]) {
   Serial.println();
 }
 
+struct move_info {
+  float completion_action; // dans une transaltion = la distance parcourus, dans une rotations l'angle fait 
+  int type_erreur; 
+};
+
+struct move_info linear_move(float distance) {
+  if (distance > 0.0) {
+    dirL=1;
+    dirR=1;
+  }
+  else {
+    dirL=-1;
+    dirR=-1;
+  }
+  // on transforme la distance en nombre de pulsation
+  target = dist2encodeurvalue(distance);
+  // on set la vitesse 
+  speed_left = dirL*speed;
+  speed_right = dirR*(COEFR2L*speed + BIASR2L);
+
+  while (true){
+    // recuperation des comptes de pulsation
+    noInterrupts();
+    cL = posi[0];
+    cR = posi[1];
+    interrupts();
+
+    // test des condition qui meme a l'arret de la base roulante 
+    if (fabs(cR) >= target) { // action entierement faite
+      stoptype=0;
+      break;  // on sort de la boucle
+    }
+    else if (front_col && iscollision_front(dsec)){ // distance de securite a l'avant
+      stoptype=1;
+      break;
+    }
+    else if (coter_col && iscollision_LR()){ // les sswitch sur les coté du robot
+      stoptype=2;
+      break;
+    }
+    else {
+      motor_Left.setSpeed(speed_left); motor_Right.setSpeed(speed_right);
+    }
+  }
+  // on sauvegarde la distance/angle parcouru avant l'interuption
+  motor_Left.setSpeed(0); motor_Right.setSpeed(0);
+  return {pulse2value(cL), stoptype};
+}
+    
+
 void setup() {
   Serial.begin(9600);
 
@@ -191,80 +242,10 @@ void loop(){
   dsec = move[4];
   front_col=move[2];
   coter_col=move[3];
-  // on itere pour la rotation puis la translation
-  for (int i=0; i<2; i++){
-    int action = move[i];
-    if (action !=0){ // si l'action vaut 0 on la skip 
-      if (i==0){
-        // la direction des roues dépend de l'angle, positif on tourne dans le sans anti-horraire et vice versa
-        if (action > 0){
-          dirL=-1;
-          dirR=1;
-        }
-        else {
-          dirL=1;
-          dirR=-1;
-        }
-        // on transforme l'angle en nb de pulsation
-        pulse2value=encodeurvalue2dist;
-        target = angle2encodervalue(action);
-      }
-      else {
-        dirL=1;
-        dirR=1;
-        // on transforme la distance en nombre de pulsation
-        target = dist2encodeurvalue(action);
-        pulse2value=encodeurvalue2dist;
-      }
-
-      // pulsation a 0 avant chaque mouvement
-      noInterrupts();
-      posi[0] = 0;
-      posi[1] = 0;
-      interrupts();
-      // on set la vitesse 
-      speed_left = dirL*speed;
-      speed_right = dirR*(COEFR2L*speed + BIASR2L);
-      
-      while (true){
-        // recuperation des comptes de pulsation
-        noInterrupts();
-        cL = posi[0];
-        cR = posi[1];
-        interrupts();
-
-        // test des condition qui meme a l'arret de la base roulante 
-        if (fabs(cR) >= target) { // action entierement faite
-          stoptype=0;
-          break;  // on sort de la boucle
-        }
-        else if (front_col && iscollision_front(dsec)){ // distance de securite a l'avant
-          stoptype=1;
-          break;
-        }
-        else if (coter_col && iscollision_LR()){ // les sswitch sur les coté du robot
-          stoptype=2;
-          break;
-        }
-        else {
-          motor_Left.setSpeed(speed_left); motor_Right.setSpeed(speed_right);
-        }
-        // on sauvegarde la distance/angle parcouru avant l'interuption
-        actionfaite[i]=pulse2value(cL);
-        // même chose mais avec le type d'interuption 0=normal, 1=collision avant, 2=collision cote
-        actionfaite[2]=stoptype;
-        
-        
-        
-      }
-      motor_Left.setSpeed(0); motor_Right.setSpeed(0);
+  move_info linear_result = linear_move(100);
+  actionfaite[1] = linear_result.completion_action;
+  actionfaite[2] = linear_result.type_erreur;
   
-    }
-    else {
-      motor_Left.setSpeed(0); motor_Right.setSpeed(0);
-    }
-  }
-  // on envoie les infos des actoin effectué en utilisant le port série
   send_action_done(actionfaite);
 
 }
